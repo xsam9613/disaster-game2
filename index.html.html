@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Disaster Safety Challenge</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Fredoka', 'sans-serif'],
+                    },
+                    keyframes: {
+                        bounceLittle: {
+                            '0%, 100%': { transform: 'translateY(-4%)' },
+                            '50%': { transform: 'translateY(0)' },
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '20%, 60%': { transform: 'translateX(-6px)' },
+                            '40%, 80%': { transform: 'translateX(6px)' },
+                        },
+                        popIn: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
+                    },
+                    animation: {
+                        bounceLittle: 'bounceLittle 2s infinite ease-in-out',
+                        shake: 'shake 0.4s ease-in-out',
+                        popIn: 'popIn 0.3s ease-out forwards',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .drop-target {
+            border-style: dashed !important;
+            background-color: rgba(236, 253, 245, 0.9) !important;
+            border-color: #10B981 !important;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-100 via-teal-100 to-indigo-200 min-h-screen text-slate-800 flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Top Navigation & Score Bar -->
+    <header class="w-full bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-30 px-4 py-2.5 border-b-2 border-amber-200">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- App Branding -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-amber-500 to-orange-400 text-white p-2.5 rounded-2xl shadow-md transform -rotate-3 text-xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight leading-none">🌋 Natural Disaster Safety Challenge</h1>
+                    <p class="text-xs text-amber-700 font-medium mt-0.5">Primary 6 Interactive Match Game</p>
+                </div>
+            </div>
+
+            <!-- Header Controls & HUD -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                
+                <!-- Score Display -->
+                <div class="flex items-center bg-amber-50 border-2 border-amber-300 px-3 py-1.5 rounded-xl shadow-xs">
+                    <i class="fa-solid fa-star text-amber-500 text-lg mr-1.5 animate-pulse"></i>
+                    <div>
+                        <span class="text-[10px] uppercase text-amber-600 font-bold block leading-none">Score</span>
+                        <span id="score-display" class="text-base sm:text-lg font-black text-amber-800 leading-none">0</span>
+                    </div>
+                </div>
+
+                <!-- Timer Display -->
+                <div class="flex items-center bg-indigo-50 border-2 border-indigo-300 px-3 py-1.5 rounded-xl shadow-xs">
+                    <i class="fa-solid fa-stopwatch text-indigo-500 text-lg mr-1.5"></i>
+                    <div>
+                        <span class="text-[10px] uppercase text-indigo-600 font-bold block leading-none">Time</span>
+                        <span id="timer-display" class="text-base sm:text-lg font-black text-indigo-800 leading-none">00:00</span>
+                    </div>
+                </div>
+
+                <!-- Sound Toggle Button -->
+                <button id="sound-btn" title="Toggle Sound" class="bg-slate-100 hover:bg-slate-200 text-slate-700 w-10 h-10 rounded-xl flex items-center justify-center border-2 border-slate-300 transition-transform active:scale-95 shadow-xs">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-base"></i>
+                </button>
+
+                <!-- Hint Button -->
+                <button id="hint-btn" class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold px-3 py-2 rounded-xl border-b-4 border-amber-600 flex items-center gap-1.5 text-xs sm:text-sm shadow-md transition-all active:translate-y-0.5 active:border-b-0">
+                    <i class="fa-solid fa-lightbulb text-amber-900"></i>
+                    <span class="hidden sm:inline">Hint</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <section class="max-w-6xl mx-auto w-full px-4 pt-4">
+        <div class="bg-gradient-to-r from-teal-600 via-emerald-600 to-indigo-700 text-white rounded-2xl p-3 sm:p-4 shadow-md flex flex-wrap items-center justify-between gap-3 border-2 border-teal-300/40">
+            <div class="flex items-center space-x-3">
+                <!-- Live QR Code Image Thumbnail -->
+                <div onclick="openQrModal()" class="bg-white p-1.5 rounded-xl shadow-md cursor-pointer hover:scale-105 transition-transform group relative">
+                    <img id="banner-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com" alt="Classroom QR Code" class="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg">
+                    <div class="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                        <i class="fa-solid fa-magnifying-glass-plus text-base"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-amber-400 text-amber-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Classroom Mode</span>
+                        <h2 class="text-sm sm:text-base font-bold">Scan to Play on Tablets!</h2>
+                    </div>
+                    <p class="text-xs text-teal-100 mt-0.5">Project this on screen so students can quickly scan and open the game on iPads/Tablets.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="openQrModal()" class="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-2 rounded-xl backdrop-blur-md border border-white/30 transition flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-qrcode"></i> Enlarge QR / Custom Link
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <main class="max-w-6xl mx-auto w-full px-4 py-4 flex-grow flex flex-col justify-center">
+        
+        <!-- Game Instruction Bar -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 bg-white/70 p-3 rounded-2xl border border-white/80 shadow-xs">
+            <div class="text-center sm:text-left">
+                <h2 class="text-sm sm:text-base font-bold text-slate-700">Match <span class="text-rose-500 font-extrabold">2 Safety Measures</span> to each Natural Disaster!</h2>
+                <p class="text-xs text-slate-500">Drag safety measure cards onto disasters OR tap a safety card and then tap a disaster card.</p>
+            </div>
+            <button id="reset-btn" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
+                <i class="fa-solid fa-rotate-left"></i> Reset Game
+            </button>
+        </div>
+
+        <!-- Matching Layout Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            
+            <!-- LEFT / TOP: 6 Disaster Target Slots -->
+            <div id="disasters-container" class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <!-- Generated dynamically via JS -->
+            </div>
+
+            <!-- RIGHT / BOTTOM: Safety Measures Selection Pool -->
+            <div class="lg:col-span-5 bg-white/85 border-2 border-slate-200 rounded-2xl p-4 shadow-lg sticky top-20">
+                <div class="flex items-center justify-between mb-3 border-b pb-2">
+                    <h3 class="font-bold text-slate-700 text-sm sm:text-base flex items-center gap-2">
+                        <i class="fa-solid fa-shield-cat text-teal-600"></i> Safety Measures Pool
+                    </h3>
+                    <span id="pool-count" class="text-xs bg-teal-100 text-teal-800 font-bold px-2.5 py-0.5 rounded-full">12 items left</span>
+                </div>
+
+                <!-- Pool Cards Container -->
+                <div id="measures-pool" class="flex flex-wrap gap-2 min-h-[180px] max-h-[55vh] overflow-y-auto p-1 custom-scrollbar">
+                    <!-- Generated dynamically via JS -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- QR CODE GENERATOR MODAL -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border-4 border-teal-400 animate-popIn text-center relative">
+            <button onclick="closeQrModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="inline-block bg-teal-100 text-teal-600 p-3 rounded-2xl mb-2 text-2xl">
+                <i class="fa-solid fa-qrcode"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800">Classroom Tablet QR</h3>
+            <p class="text-xs text-slate-500 mb-4">Scan with iPad or tablet camera to open the game directly.</p>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200 inline-block mb-4 shadow-inner">
+                <img id="modal-qr-img" src="" alt="Game QR Code" class="w-48 h-48 object-contain rounded-lg mx-auto">
+            </div>
+
+            <div class="text-left mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">Custom Published URL (Optional):</label>
+                <div class="flex gap-2">
+                    <input type="text" id="custom-url-input" placeholder="Paste your hosted website URL..." class="w-full text-xs p-2.5 rounded-xl border-2 border-slate-300 focus:border-teal-500 focus:outline-none">
+                    <button onclick="updateQrUrl()" class="bg-teal-500 hover:bg-teal-600 text-white font-bold text-xs px-3 rounded-xl transition">
+                        Update
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="closeQrModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                Close Modal
+            </button>
+        </div>
+    </div>
+
+    <!-- HINT MODAL -->
+    <div id="hint-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border-4 border-amber-300 animate-popIn">
+            <div class="flex items-center gap-3 text-amber-500 mb-3">
+                <i class="fa-solid fa-lightbulb text-3xl"></i>
+                <h3 class="text-xl font-bold text-slate-800">Safety Tip!</h3>
+            </div>
+            <p id="hint-text" class="text-slate-600 text-sm sm:text-base mb-6 leading-relaxed">
+                Hint content goes here...
+            </p>
+            <button id="close-hint-btn" class="w-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold py-2.5 rounded-xl border-b-4 border-amber-600 transition active:translate-y-0.5 active:border-b-0">
+                Got it, thanks!
+            </button>
+        </div>
+    </div>
+
+    <!-- VICTORY SUMMARY MODAL -->
+    <div id="victory-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl border-4 border-emerald-400 animate-popIn relative overflow-hidden">
+            
+            <div class="inline-block bg-amber-100 text-amber-500 p-4 rounded-full mb-3 text-4xl shadow-inner border-2 border-amber-300 animate-bounceLittle">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-1">Safety Hero Master!</h2>
+            <p class="text-slate-500 text-xs sm:text-sm mb-4">You matched all natural disasters with the correct safety measures!</p>
+
+            <!-- Star Rating Display -->
+            <div id="star-rating" class="flex justify-center items-center gap-2 text-3xl text-amber-400 my-2">
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl mb-6 border border-slate-200">
+                <div class="text-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Time</span>
+                    <span id="final-time" class="text-lg font-black text-slate-700">00:00</span>
+                </div>
+                <div class="text-center">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Final Score</span>
+                    <span id="final-score" class="text-lg font-black text-emerald-600">000</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <button id="play-again-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl border-b-4 border-emerald-700 transition active:translate-y-0.5 active:border-b-0 shadow-lg flex items-center justify-center gap-2 text-base">
+                <i class="fa-solid fa-rotate-right"></i> Play Again
+            </button>
+        </div>
+    </div>
+
+    <footer class="py-2.5 text-center text-xs text-slate-600 bg-white/50 backdrop-blur-xs border-t border-white/60 font-medium">
+        Primary 6 English Interactive Learning
+    </footer>
+
+    <script>
+        // Exact Disaster & Safety Measures Data Specification
+        const DISASTERS_DATA = [
+            {
+                id: 'earthquake',
+                title: '1. Earthquake',
+                icon: 'fa-house-crack',
+                color: 'from-amber-500 to-orange-600',
+                borderColor: 'border-orange-400',
+                hint: 'During an earthquake, duck under sturdy shelter and head for safe open space!',
+                measures: ['take cover', 'move to open area']
+            },
+            {
+                id: 'flooding',
+                title: '2. Flooding',
+                icon: 'fa-water',
+                color: 'from-blue-500 to-cyan-600',
+                borderColor: 'border-blue-400',
+                hint: 'Floodwaters are deep and swift. Keep clear of water and head up high!',
+                measures: ['stay out of water', 'move to higher ground']
+            },
+            {
+                id: 'wildfire',
+                title: '3. Wildfire',
+                icon: 'fa-fire-flame-curved',
+                color: 'from-red-500 to-rose-600',
+                borderColor: 'border-red-400',
+                hint: 'Smoke travels upward quickly. Protect your breathing and move downhill.',
+                measures: ['cover your mouth and nose', 'move to lower ground']
+            },
+            {
+                id: 'landslide',
+                title: '4. Landslide',
+                icon: 'fa-hill-rockslide',
+                color: 'from-purple-500 to-indigo-600',
+                borderColor: 'border-purple-400',
+                hint: 'Stay far from steep muddy hills and shield your head from falling debris!',
+                measures: ['stay away from the slopes', 'protect your head with your arms']
+            },
+            {
+                id: 'tsunami',
+                title: '5. Tsunami',
+                icon: 'fa-water-lower',
+                color: 'from-teal-500 to-emerald-600',
+                borderColor: 'border-teal-400',
+                hint: 'Giant sea waves come ashore fast! Retreat away from ocean beaches immediately.',
+                measures: ['stay away from the beach', 'move inland and uphill']
+            },
+            {
+                id: 'typhoon',
+                title: '6. Typhoon',
+                icon: 'fa-wind',
+                color: 'from-slate-600 to-slate-800',
+                borderColor: 'border-slate-500',
+                hint: 'Severe winds blow objects and break glass. Stay safely indoors!',
+                measures: ['stay indoors', 'stay away from windows']
+            }
+        ];
+
+        // Synthesizer Web Audio API sound generator
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playSuccess() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.15); // G5
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(164.81, now + 0.12);
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const now = this.ctx.currentTime + (idx * 0.12);
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                });
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        // Game State Tracker
+        let gameState = {
+            score: 0,
+            timerSeconds: 0,
+            timerInterval: null,
+            selectedMeasureId: null,
+            matches: {}, // { disasterId: [ {id, text}, ... ] }
+            allMeasures: [],
+            isCompleted: false,
+            currentUrl: window.location.href
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+            setupEventListeners();
+            initQrCode();
+        });
+
+        function initGame() {
+            gameState.score = 0;
+            gameState.timerSeconds = 0;
+            gameState.selectedMeasureId = null;
+            gameState.matches = {};
+            gameState.isCompleted = false;
+
+            DISASTERS_DATA.forEach(d => {
+                gameState.matches[d.id] = [];
+            });
+
+            // Create shuffled measures array
+            let measuresList = [];
+            DISASTERS_DATA.forEach(d => {
+                d.measures.forEach(mText => {
+                    measuresList.push({
+                        id: 'm-' + Math.random().toString(36).substr(2, 9),
+                        text: mText,
+                        disasterId: d.id
+                    });
+                });
+            });
+
+            // Shuffle pool
+            gameState.allMeasures = measuresList.sort(() => Math.random() - 0.5);
+
+            // Timer Initialization
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                gameState.timerSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+
+            updateHUD();
+            renderDisasters();
+            renderMeasuresPool();
+        }
+
+        function renderDisasters() {
+            const container = document.getElementById('disasters-container');
+            container.innerHTML = '';
+
+            DISASTERS_DATA.forEach(disaster => {
+                const matchedList = gameState.matches[disaster.id];
+                const isFullyMatched = matchedList.length === 2;
+
+                const card = document.createElement('div');
+                card.className = `glass-panel rounded-2xl p-3.5 shadow-xs transition-all border-2 flex flex-col justify-between ${
+                    isFullyMatched ? 'border-emerald-400 bg-emerald-50/90 ring-2 ring-emerald-300' : 'border-white'
+                }`;
+                card.dataset.disasterId = disaster.id;
+
+                // Drag & Drop Handlers
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('dragleave', handleDragLeave);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('click', () => handleDisasterCardClick(disaster.id));
+
+                card.innerHTML = `
+                    <div>
+                        <!-- Disaster Header -->
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br ${disaster.color} text-white flex items-center justify-center shadow-xs">
+                                    <i class="fa-solid ${disaster.icon} text-base"></i>
+                                </div>
+                                <h3 class="font-bold text-slate-800 text-sm sm:text-base">${disaster.title}</h3>
+                            </div>
+                            ${isFullyMatched ? '<span class="text-emerald-500 text-lg"><i class="fa-solid fa-circle-check"></i></span>' : ''}
+                        </div>
+
+                        <!-- Safety Measures Target Slots -->
+                        <div class="space-y-1.5 drop-zone p-2 rounded-xl transition-all border-2 border-dashed border-slate-200 min-h-[82px] bg-slate-50/60 flex flex-col justify-center">
+                            ${matchedList.length === 0 ? 
+                                `<p class="text-[11px] text-center text-slate-400 font-medium">Drop or tap 2 safety measures here</p>` : ''
+                            }
+                            ${matchedList.map(item => `
+                                <div class="bg-white text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-xs border border-slate-200 flex items-center justify-between animate-popIn">
+                                    <span class="flex items-center gap-1.5">
+                                        <i class="fa-solid fa-shield text-emerald-500"></i> ${item.text}
+                                    </span>
+                                    <button onclick="event.stopPropagation(); removeMatchedMeasure('${disaster.id}', '${item.id}')" class="text-slate-300 hover:text-rose-500 p-0.5">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderMeasuresPool() {
+            const poolContainer = document.getElementById('measures-pool');
+            const poolCountLabel = document.getElementById('pool-count');
+            poolContainer.innerHTML = '';
+
+            const matchedIds = new Set();
+            Object.values(gameState.matches).forEach(arr => arr.forEach(item => matchedIds.add(item.id)));
+            
+            const remaining = gameState.allMeasures.filter(m => !matchedIds.has(m.id));
+
+            poolCountLabel.innerText = `${remaining.length} items left`;
+
+            if (remaining.length === 0) {
+                poolContainer.innerHTML = `<div class="w-full text-center text-emerald-600 font-bold py-6 text-sm"><i class="fa-solid fa-circle-check text-xl block mb-1"></i> Excellent! All safety measures matched!</div>`;
+                return;
+            }
+
+            remaining.forEach(measure => {
+                const chip = document.createElement('div');
+                const isSelected = gameState.selectedMeasureId === measure.id;
+
+                chip.className = `p-2.5 sm:p-3 bg-white rounded-xl shadow-xs border-2 text-slate-700 font-medium text-xs sm:text-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md hover:border-amber-400 flex items-center justify-between gap-2 select-none ${
+                    isSelected ? 'border-amber-500 ring-2 ring-amber-300 bg-amber-50/90 scale-102' : 'border-slate-200'
+                }`;
+                chip.draggable = true;
+                chip.dataset.measureId = measure.id;
+
+                chip.innerHTML = `
+                    <span class="capitalize flex items-center gap-1.5">
+                        <i class="fa-solid fa-hand-holding-hand text-amber-500 text-xs"></i>
+                        ${measure.text}
+                    </span>
+                    <i class="fa-solid fa-grip-dots-vertical text-slate-300 text-xs"></i>
+                `;
+
+                // Drag Events
+                chip.addEventListener('dragstart', (e) => handleDragStart(e, measure));
+                chip.addEventListener('dragend', handleDragEnd);
+
+                // Tap selection
+                chip.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (gameState.selectedMeasureId === measure.id) {
+                        gameState.selectedMeasureId = null;
+                    } else {
+                        gameState.selectedMeasureId = measure.id;
+                    }
+                    renderMeasuresPool();
+                });
+
+                poolContainer.appendChild(chip);
+            });
+        }
+
+        let draggedMeasure = null;
+
+        function handleDragStart(e, measure) {
+            draggedMeasure = measure;
+            e.dataTransfer.setData('text/plain', measure.id);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedMeasure = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drop-target');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drop-target');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const card = e.currentTarget;
+            card.classList.remove('drop-target');
+            
+            const disasterId = card.dataset.disasterId;
+            if (draggedMeasure) {
+                attemptMatch(disasterId, draggedMeasure);
+            }
+        }
+
+        function handleDisasterCardClick(disasterId) {
+            if (gameState.selectedMeasureId) {
+                const measure = gameState.allMeasures.find(m => m.id === gameState.selectedMeasureId);
+                if (measure) {
+                    attemptMatch(disasterId, measure);
+                }
+            }
+        }
+
+        function attemptMatch(disasterId, measure) {
+            const currentMatches = gameState.matches[disasterId];
+
+            if (currentMatches.length >= 2) {
+                shakeElement(document.querySelector(`[data-disaster-id="${disasterId}"]`));
+                sounds.playError();
+                return;
+            }
+
+            if (measure.disasterId === disasterId) {
+                // Correct match
+                currentMatches.push(measure);
+                gameState.score += 50;
+                gameState.selectedMeasureId = null;
+                sounds.playSuccess();
+
+                renderDisasters();
+                renderMeasuresPool();
+                updateHUD();
+                checkGameCompletion();
+            } else {
+                // Wrong match
+                sounds.playError();
+                shakeElement(document.querySelector(`[data-disaster-id="${disasterId}"]`));
+            }
+        }
+
+        function removeMatchedMeasure(disasterId, measureId) {
+            gameState.matches[disasterId] = gameState.matches[disasterId].filter(m => m.id !== measureId);
+            gameState.score = Math.max(0, gameState.score - 15);
+            renderDisasters();
+            renderMeasuresPool();
+            updateHUD();
+        }
+
+        function shakeElement(el) {
+            if (!el) return;
+            el.classList.add('animate-shake');
+            setTimeout(() => el.classList.remove('animate-shake'), 400);
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = gameState.score;
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(gameState.timerSeconds / 60).toString().padStart(2, '0');
+            const secs = (gameState.timerSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+        }
+
+        function checkGameCompletion() {
+            const totalMatches = Object.values(gameState.matches).reduce((acc, curr) => acc + curr.length, 0);
+            if (totalMatches === 12) {
+                gameState.isCompleted = true;
+                clearInterval(gameState.timerInterval);
+
+                sounds.playVictory();
+
+                if (typeof confetti === 'function') {
+                    confetti({
+                        particleCount: 120,
+                        spread: 80,
+                        origin: { y: 0.6 }
+                    });
+                }
+
+                setTimeout(() => {
+                    document.getElementById('final-score').innerText = gameState.score;
+                    document.getElementById('final-time').innerText = document.getElementById('timer-display').innerText;
+                    document.getElementById('victory-modal').classList.remove('hidden');
+                }, 500);
+            }
+        }
+
+        function initQrCode() {
+            const currentUrl = window.location.href;
+            document.getElementById('custom-url-input').value = currentUrl;
+            generateQrImages(currentUrl);
+        }
+
+        function generateQrImages(url) {
+            const encodedUrl = encodeURIComponent(url);
+            const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedUrl}`;
+            
+            document.getElementById('banner-qr-img').src = qrApi;
+            document.getElementById('modal-qr-img').src = qrApi;
+        }
+
+        function updateQrUrl() {
+            const inputVal = document.getElementById('custom-url-input').value.trim();
+            if (inputVal) {
+                generateQrImages(inputVal);
+            }
+        }
+
+        function openQrModal() {
+            document.getElementById('qr-modal').classList.remove('hidden');
+        }
+
+        function closeQrModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+        }
+
+        function setupEventListeners() {
+            // Sound button toggle
+            const soundBtn = document.getElementById('sound-btn');
+            const soundIcon = document.getElementById('sound-icon');
+            soundBtn.addEventListener('click', () => {
+                sounds.muted = !sounds.muted;
+                if (sounds.muted) {
+                    soundIcon.className = 'fa-solid fa-volume-xmark text-rose-500';
+                } else {
+                    soundIcon.className = 'fa-solid fa-volume-high text-slate-700';
+                }
+            });
+
+            // Hint Modal
+            const hintBtn = document.getElementById('hint-btn');
+            const hintModal = document.getElementById('hint-modal');
+            const closeHintBtn = document.getElementById('close-hint-btn');
+            const hintText = document.getElementById('hint-text');
+
+            hintBtn.addEventListener('click', () => {
+                const uncompleted = DISASTERS_DATA.find(d => gameState.matches[d.id].length < 2);
+                if (uncompleted) {
+                    hintText.innerText = `💡 Tip for ${uncompleted.title}: ${uncompleted.hint}`;
+                } else {
+                    hintText.innerText = 'Awesome job! You matched all the safety measures!';
+                }
+                hintModal.classList.remove('hidden');
+            });
+
+            closeHintBtn.addEventListener('click', () => {
+                hintModal.classList.add('hidden');
+            });
+
+            // Reset & Play Again
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                initGame();
+            });
+
+            document.getElementById('play-again-btn').addEventListener('click', () => {
+                document.getElementById('victory-modal').classList.add('hidden');
+                initGame();
+            });
+
+            // Deselect on clicking background
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#measures-pool') && !e.target.closest('#disasters-container')) {
+                    gameState.selectedMeasureId = null;
+                    renderMeasuresPool();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
